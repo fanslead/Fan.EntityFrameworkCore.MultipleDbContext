@@ -16,7 +16,7 @@
     [ConnectionString("XXXDBContext", DbType = "MySql")]
     public partial class XXXDBContext : DbContext
 ```
-### Start.cs中注入AddDbContexts
+### Startup.cs中注入AddDbContexts
 ```
     services.AddDbContexts(builder=>{
         builder.AddDbContext<XXXDbContext1>(services);
