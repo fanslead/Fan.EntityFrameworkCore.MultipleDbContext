@@ -16,11 +16,11 @@ namespace Fan.EntityFrameworkCore.MultipleDbContext.Extensions
 
     public static class ServiceCollectionExtension
     {
-        public static IServiceCollection AddDbContexts(this IServiceCollection services, Action<DbContextBuilder> action)
+        public static IServiceCollection AddDbContexts(this IServiceCollection services, Action<DbContextBuilder> builder)
         {
             InitDbContextDir();
             var dbContextBuilder = new DbContextBuilder();
-            action?.Invoke(dbContextBuilder);
+            builder?.Invoke(dbContextBuilder);
             services.AddScoped<DBContextFactory>();
             return services;
         }

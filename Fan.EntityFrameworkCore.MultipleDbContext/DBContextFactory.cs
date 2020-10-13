@@ -7,7 +7,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Fan.EntityFrameworkCore.MultipleDbContext
 {
@@ -23,7 +27,11 @@ namespace Fan.EntityFrameworkCore.MultipleDbContext
         {
             _serviceProvider = serviceProvider;
         }
-
+        /// <summary>
+        /// 获取对应实体类所在的DbContext
+        /// </summary>
+        /// <typeparam name="T">实体类类型</typeparam>
+        /// <returns></returns>
         public DbContext GetDbContext<T>() where T : class
         {
             if (ContextTypes.TryGetValue(typeof(T), out Type contextType))
@@ -45,6 +53,11 @@ namespace Fan.EntityFrameworkCore.MultipleDbContext
             }
             throw new Exception("当前实体未包含在任一DbCotext.");
         }
+        /// <summary>
+        /// 根据DbContext类型获取对应DbContext
+        /// </summary>
+        /// <param name="contextType">DbContext类型</param>
+        /// <returns></returns>
         public DbContext GetDbContext(Type contextType)
         {
             if (DbContexts.TryGetValue(contextType, out DbContext context))
@@ -54,6 +67,69 @@ namespace Fan.EntityFrameworkCore.MultipleDbContext
                 var ct = (DbContext)_serviceProvider.CreateScope().ServiceProvider.GetRequiredService(contextType);
                 DbContexts.TryAdd(contextType, ct);
                 return ct;
+            }
+        }
+
+        public void Save()
+        {
+            foreach (var context in DbContexts)
+            {
+                var _context = context.Value;
+                try
+                {
+                    var entities = _context.ChangeTracker.Entries()
+                        .Where(e => e.State == EntityState.Added
+                                    || e.State == EntityState.Modified)
+                        .Select(e => e.Entity);
+
+                    foreach (var entity in entities)
+                    {
+                        var validationContext = new ValidationContext(entity);
+                        Validator.ValidateObject(entity, validationContext, validateAllProperties: true);
+                    }
+
+                    _context.SaveChanges();
+                }
+                catch (ValidationException exc)
+                {
+                    Console.WriteLine($"{nameof(Save)} validation exception: {exc?.Message}");
+                    throw (exc.InnerException as Exception ?? exc);
+                }
+                catch (Exception ex) //DbUpdateException 
+                {
+                    throw (ex.InnerException as Exception ?? ex);
+                }
+            }
+        }
+        public async Task SaveAsync(CancellationToken cancellationToken = default)
+        {
+            foreach (var context in DbContexts)
+            {
+                var _context = context.Value;
+                try
+                {
+                    var entities = _context.ChangeTracker.Entries()
+                        .Where(e => e.State == EntityState.Added
+                                    || e.State == EntityState.Modified)
+                        .Select(e => e.Entity);
+
+                    foreach (var entity in entities)
+                    {
+                        var validationContext = new ValidationContext(entity);
+                        Validator.ValidateObject(entity, validationContext, validateAllProperties: true);
+                    }
+
+                    await _context.SaveChangesAsync(cancellationToken);
+                }
+                catch (ValidationException exc)
+                {
+                    Console.WriteLine($"{nameof(SaveAsync)} validation exception: {exc?.Message}");
+                    throw (exc.InnerException as Exception ?? exc);
+                }
+                catch (Exception ex) //DbUpdateException 
+                {
+                    throw (ex.InnerException as Exception ?? ex);
+                }
             }
         }
     }
